@@ -124,6 +124,5 @@ sim_trades_*.jsonl
 *.ok_*
 *.v1_ok_*
 # Machine-local launch files and embedded credentials
-local_daily_603305.sh
 com.kronos.local_daily_603305.plist
 *.disabled_*

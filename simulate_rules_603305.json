@@ -1,0 +1,63 @@
+{
+  "_comment": "603305 纯模拟策略配置（小白可读版）。百分比单位均为 %。",
+  "rule_version": "2026-04-29-v1",
+
+  "thresholds": {
+    "_comment": "信号阈值：相对昨收的涨跌幅。>=bull 为偏多；<=bear 为偏空；强信号按2倍阈值判断。",
+    "bull_pct": 0.6,
+    "bear_pct": -1.2
+  },
+
+  "position_management": {
+    "_comment": "仓位与风控规则。max_long=100 代表满多仓；max_short=-100 代表满空仓。",
+    "max_long": 100,
+    "max_short": -100,
+    "neutral_when_short_cover_pct": 20,
+    "bull_when_short_cover_pct": 40,
+    "strong_bull_when_short_cover_pct": 40,
+    "strong_bull_when_short_cover_first": true,
+    "forbid_add_short_at_full_short": true
+  },
+
+  "take_profit": {
+    "_comment": "止盈模块：回撤止盈 + 浮盈止盈。",
+    "enabled": true,
+    "drawdown_levels": [
+      { "_comment": "从盘中高点回撤>=1.0%，减仓30%", "drawdown_pct": 1.0, "reduce_pct": 30 },
+      { "_comment": "从盘中高点回撤>=1.8%，再减仓30%", "drawdown_pct": 1.8, "reduce_pct": 30 },
+      { "_comment": "从盘中高点回撤>=2.5%，仓位降到20%底仓", "drawdown_pct": 2.5, "reduce_to_floor_pct": 20 }
+    ],
+    "profit_levels": [
+      { "_comment": "浮盈>=3.0%，减仓30%", "profit_pct": 3.0, "reduce_pct": 30 },
+      { "_comment": "浮盈>=5.0%，再减仓30%", "profit_pct": 5.0, "reduce_pct": 30 },
+      { "_comment": "浮盈>=7.0%，再减仓20%", "profit_pct": 7.0, "reduce_pct": 20 }
+    ]
+  },
+
+  "long_side_actions": {
+    "_comment": "多头动作：偏多加仓20%，强多加仓30%。",
+    "bull_add_pct": 20,
+    "strong_bull_add_pct": 30
+  },
+
+  "short_side_actions": {
+    "_comment": "空头动作：偏空加空20%，强空加空30%。",
+    "bear_add_pct": 20,
+    "strong_bear_add_pct": 30
+  },
+
+  "short_risk_control": {
+    "max_short": -100,
+    "max_add_short_per_trade": 30,
+    "stop_loss_levels": [
+      {"loss_pct": -1.0, "reduce_pct": 30},
+      {"loss_pct": -2.0, "reduce_pct": 50},
+      {"loss_pct": -3.0, "action": "强制平空"}
+    ],
+    "tail_risk": {
+      "enabled": true,
+      "time": "14:40",
+      "max_short_if_no_strong_signal": -50
+    }
+  }
+}

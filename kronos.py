@@ -36,6 +36,11 @@ Commands:
   <code> winrate     Win rate report
   <code> status      Show current simulated position
   <code> reset       Reset simulated state
+  <codes> add to watchlist
+                     Bulk-add tickers (no simulate run needed)
+                     e.g. 603305, 688582, 688127 add to watchlist
+  watchlist add <codes>
+                     Same, command-first form
   stocks             List all tracked stocks
   dashboard          Cross-ticker summary (position, price, win rate, signal)
   dashboard html     Same, written to dashboard.html (charts incl. signals)
@@ -46,6 +51,7 @@ Examples:
   Kronos> 603305 simulate
   Kronos> 000001 simulate
   Kronos> 603305 review
+  Kronos> 688582, 688127, 688608 add to watchlist
   Kronos> stocks
   Kronos> dashboard html
 """
@@ -392,6 +398,38 @@ def cmd_stocks() -> None:
     print()
 
 
+def cmd_add_watchlist(codes_raw: str) -> None:
+    """
+    Bulk-add tickers to the tracked-stocks workspace, e.g.
+    '603305, 688582, 688127 add to watchlist'. Just scaffolds each
+    ticker's workspace (the same setup the first simulate/shadow/etc.
+    run would trigger) without running a simulation, so they show up
+    in 'stocks' and 'dashboard' immediately.
+    """
+    tokens = [c for c in re.split(r"[,\s]+", codes_raw.strip()) if c]
+    if not tokens:
+        print("[Kronos] No stock codes given. Example: 603305, 000001 add to watchlist")
+        return
+
+    added, already, invalid = [], [], []
+    for code in tokens:
+        if not (code.isdigit() and len(code) == 6):
+            invalid.append(code)
+            continue
+        was_tracked = code == SRC_CODE or (STOCKS_DIR / code).exists()
+        ensure_stock_workspace(code)
+        (already if was_tracked else added).append(code)
+
+    print()
+    if added:
+        print(f"[Kronos] Added to watchlist: {', '.join(f'{c} {stock_name(c)}' for c in added)}")
+    if already:
+        print(f"[Kronos] Already tracked: {', '.join(f'{c} {stock_name(c)}' for c in already)}")
+    if invalid:
+        print(f"[Kronos] Skipped invalid codes (need 6 digits): {', '.join(invalid)}")
+    print()
+
+
 # ── Dashboard ──────────────────────────────────────────────────────────────────
 
 def _dashboard_rows() -> list[dict]:
@@ -629,9 +667,23 @@ COMMANDS: dict[str, object] = {
 }
 
 
+_WATCHLIST_SUFFIX = "add to watchlist"
+
+
 def dispatch(raw: str) -> bool:
     """Parse one command string. Returns False to signal exit."""
-    parts = raw.strip().split()
+    stripped = raw.strip()
+    if not stripped:
+        return True
+
+    # Bulk watchlist add, codes-first phrasing:
+    # "603305, 688582, 688127 add to watchlist"
+    normalized = re.sub(r"\s+", " ", stripped)
+    if normalized.lower().endswith(_WATCHLIST_SUFFIX):
+        cmd_add_watchlist(normalized[: -len(_WATCHLIST_SUFFIX)])
+        return True
+
+    parts = normalized.split()
     if not parts:
         return True
 
@@ -648,6 +700,10 @@ def dispatch(raw: str) -> bool:
     if head in ("dashboard", "看板"):
         as_html = len(parts) > 1 and parts[1].lower() in ("html", "网页")
         cmd_dashboard(as_html)
+        return True
+    # Bulk watchlist add, command-first phrasing: "watchlist add 603305 688582"
+    if head == "watchlist" and len(parts) > 1 and parts[1].lower() == "add":
+        cmd_add_watchlist(" ".join(parts[2:]))
         return True
 
     # Expect: <6-digit code> <command>

@@ -43,6 +43,7 @@ python3 kronos.py
 Kronos> 603305 simulate
 Kronos> 000001 simulate
 Kronos> 603305 review
+Kronos> 688582, 688127, 688608 add to watchlist
 Kronos> stocks
 Kronos> dashboard
 Kronos> dashboard html
@@ -64,6 +65,8 @@ python3 kronos.py 603305 simulate
 | `<代码> winrate` | 生成胜率报告 |
 | `<代码> status` | 查看当前模拟仓位 |
 | `<代码> reset` | 重置模拟状态（需确认） |
+| `<代码1>, <代码2>, ... add to watchlist` | 批量添加标的（仅建立工作区，不跑模拟），例：`688582, 688127 add to watchlist` |
+| `watchlist add <代码1> <代码2> ...` | 同上，命令在前的写法 |
 | `stocks` | 列出所有已跟踪标的及仓位概览 |
 | `dashboard` | 终端汇总看板 |
 | `dashboard html` | 生成 `dashboard.html`（含价格/信号/仓位图表） |

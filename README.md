@@ -1,10 +1,82 @@
 # Kronos Multi-Stock
 
-面向 A 股多标的（最初以 **603305** 为模板）的多空模拟策略研究系统。
+面向 A 股**任意标的**的多空模拟策略研究系统 — 一条命令即可为新的股票代码开仓模拟、生成信号、跑胜率、出看板，无需为每只股票单独搭建工程。
 
-本项目基于开源项目 [Kronos](https://github.com/shiyu-coder/Kronos) 进行定制，在 K 线基础模型之外，增加了规则驱动的信号、主/影子策略、模拟仓位、交易成本、风险控制、自动报告、复盘和治理工具。
+本项目基于开源项目 [Kronos](https://github.com/shiyu-coder/Kronos) 进行定制，在 K 线基础模型之外，增加了规则驱动的信号、主/影子策略、模拟仓位、交易成本、风险控制、自动报告、复盘、治理工具，以及跨标的通用 CLI 与看板。
 
 > **重要声明**：本项目仅用于研究、学习和模拟验证，不连接券商，不执行真实下单，不构成投资建议。任何策略调整都应经过回测、观察、归因和人工确认。
+
+## 这是什么
+
+最初的版本只为 **603305（旭升集团）** 一只股票服务，每加一只新标的都要手动复制一套脚本。现在的 `kronos.py` 把这套流程变成了通用 CLI：
+
+- 输入任意 6 位 A 股代码，自动判断沪/深市场，自动抓取股票名称（腾讯/东方财富接口，本地缓存）；
+- 第一次对某个代码下命令时，自动从模板标的复制并改写出一套独立工作区（信号、主/影子策略、规则、状态），存放在 `stocks/<代码>/` 下，互不干扰；
+- 支持模拟开平仓、影子策略对照、收盘复盘、胜率统计、状态查询、状态重置；
+- 提供跨标的汇总看板（终端表格或带价格/信号/仓位图表的 HTML 页面）。
+
+## 快速开始
+
+### 1. 获取代码
+
+```bash
+git clone https://github.com/yifanliu92/Kronos-Multi-Stock.git
+cd Kronos-Multi-Stock
+```
+
+### 2. 创建 Python 环境
+
+建议使用 Python 3.10 或更高版本：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. 使用通用 CLI
+
+交互模式：
+
+```bash
+python3 kronos.py
+Kronos> 603305 simulate
+Kronos> 000001 simulate
+Kronos> 603305 review
+Kronos> stocks
+Kronos> dashboard
+Kronos> dashboard html
+```
+
+或一条命令直接执行：
+
+```bash
+python3 kronos.py 603305 simulate
+```
+
+完整命令列表：
+
+| 命令 | 作用 |
+| --- | --- |
+| `<代码> simulate` | 运行主策略模拟（自动为新代码建立工作区） |
+| `<代码> shadow` | 运行影子策略 |
+| `<代码> review` | 收盘复盘 |
+| `<代码> winrate` | 生成胜率报告 |
+| `<代码> status` | 查看当前模拟仓位 |
+| `<代码> reset` | 重置模拟状态（需确认） |
+| `stocks` | 列出所有已跟踪标的及仓位概览 |
+| `dashboard` | 终端汇总看板 |
+| `dashboard html` | 生成 `dashboard.html`（含价格/信号/仓位图表） |
+
+### 4. 首次运行前请先阅读
+
+```text
+README_603305_SIM.md
+KRONOS_项目说明书_v1.1.md
+STRATEGY_SOP_603305_v2026-04-29-v1.md
+```
+
+不同环境的数据源和状态初始化方式可能不同。请勿在不了解配置和输入数据的情况下，将脚本用于任何真实交易流程。
 
 ## 项目目标
 
@@ -28,27 +100,32 @@ flowchart LR
 - 同时运行主策略与影子策略，保证对照公平；
 - 纳入佣金、印花税、过户费等成本口径；
 - 记录动作、原因、仓位和结果，形成可审计闭环；
-- 先积累样本，再依据数据决定是否升级策略。
+- 先积累样本，再依据数据决定是否升级策略；
+- 同一套规则可以无缝复用到任意标的，而不是为每只股票重新发明一遍。
 
 ## 核心能力
 
-### 1. 信号与动作
+### 1. 通用多标的 CLI 与看板
+
+`kronos.py` 是统一入口：任意 6 位代码首次调用时自动建立独立工作区（`stocks/<代码>/`），自动识别交易所、自动取股票名称并本地缓存。`dashboard` / `dashboard html` 汇总所有已跟踪标的的仓位、现价、累计成本、胜率和历史信号，HTML 版本附带 SVG 价格/信号折线图与仓位变化条形图。
+
+### 2. 信号与动作
 
 根据昨收、今开、最高、最低、现价和涨跌幅等信息，生成强多、偏多、中性、偏空、强空等信号，并映射为加仓、减仓或持仓不变。
 
-### 2. 主策略与影子策略
+### 3. 主策略与影子策略
 
 主策略用于当前模拟执行，影子策略用于验证候选参数。二者在同一时点运行，以减少数据口径和时间差造成的偏差。
 
-### 3. 模拟仓位与成本
+### 4. 模拟仓位与成本
 
 系统跟踪模拟仓位、建仓均价、毛浮盈、净浮盈和累计成本，并支持多空方向与跨零仓位变化。
 
-### 4. 风控与治理
+### 5. 风控与治理
 
 包含止盈、回撤约束、交易日历、样本质量、速率限制、输出一致性和异常追踪等检查。策略参数变更应先进入影子策略观察，再决定是否升级。
 
-### 5. 报告与复盘
+### 6. 报告与复盘
 
 盘中生成统一格式回报，收盘后汇总主/影子策略状态、触发明细、胜率、成本和差异，支持后续归因分析。
 
@@ -56,16 +133,21 @@ flowchart LR
 
 | 文件或目录 | 用途 |
 | --- | --- |
-| `simulate_position_603305.py` | 主策略模拟执行 |
-| `simulate_position_603305_shadow.py` | 影子策略模拟执行 |
-| `auto_report_guard_603305.py` | 主/影统一执行、格式化和一致性检查 |
-| `sim_review_603305.py` | 收盘复盘 |
-| `simulate_rules_603305.json` | 主策略规则参数 |
+| `kronos.py` | 通用多标的 CLI 入口（推荐的主要使用方式） |
+| `stocks/<代码>/` | 除模板标的外，各标的自动生成的独立工作区（脚本、规则、状态） |
+| `dashboard.html` | `dashboard html` 命令生成的跨标的汇总看板 |
+| `simulate_position_603305.py` | 模板标的（603305）主策略模拟执行 |
+| `simulate_position_603305_shadow.py` | 模板标的影子策略模拟执行 |
+| `auto_report_guard_603305.py` | 模板标的主/影统一执行、格式化和一致性检查 |
+| `sim_review_603305.py` | 模板标的收盘复盘 |
+| `simulate_rules_603305.json` | 模板标的主策略规则参数 |
 | `signal_rules_603305.json` | 信号阈值与文案规则 |
 | `strategy_versions/` | 影子策略规则及版本记录 |
 | `scripts/` | 自动运行、复盘、校验和治理工具 |
 | `config/` | 交易日历、因子权重和时点约束 |
 | `audit/` | 审计与验证记录 |
+
+> 603305 是新增标的复制改写的**模板**：`kronos.py` 首次对一个新代码执行命令时，会把上述模板文件复制到 `stocks/<代码>/` 并自动替换代码、名称、交易所相关字段。
 
 ## 文档入口
 
@@ -77,45 +159,6 @@ flowchart LR
 - [系统契约](KRONOS_SYSTEM_CONTRACT.md)
 - [治理基线](KRONOS_GOVERNANCE_BASELINE_v0.3.md)
 - [速率限制策略](KRONOS_RATE_LIMIT_POLICY.md)
-
-## 快速开始
-
-### 1. 获取代码
-
-```bash
-git clone https://github.com/yifanliu92/Kronos-Multi-Stock.git
-cd Kronos-Multi-Stock
-```
-
-### 2. 创建Python环境
-
-建议使用 Python 3.10 或更高版本：
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 3. 阅读策略规则
-
-首次运行前，请先阅读：
-
-```text
-README_603305_SIM.md
-KRONOS_项目说明书_v1.1.md
-STRATEGY_SOP_603305_v2026-04-29-v1.md
-```
-
-### 4. 手动模拟运行
-
-```bash
-python3 simulate_position_603305.py
-python3 simulate_position_603305_shadow.py
-python3 sim_review_603305.py
-```
-
-不同环境的数据源和状态初始化方式可能不同。请勿在不了解配置和输入数据的情况下，将脚本用于任何真实交易流程。
 
 ## Telegram配置
 
@@ -147,12 +190,14 @@ chmod 600 ~/.config/kronos/telegram.env
 - Python虚拟环境；
 - 令牌、密码和本机启动配置；
 - 交易状态、流水和个人数据；
+- `stocks/` 下自动生成的各标的工作区（可由 `kronos.py` 随时重新生成）；
+- `dashboard.html` 及股票名称缓存（同上，可重新生成）；
 - 日志、报告、任务队列和临时输出；
 - 备份、归档及Office临时文件。
 
 ## 与上游Kronos的关系
 
-本仓库是在 [shiyu-coder/Kronos](https://github.com/shiyu-coder/Kronos) 基础上的定制研究项目。上游Kronos提供金融K线基础模型、Tokenizer、预测模型及相关训练与推理能力；本仓库新增的多标的策略层（以603305为模板，可扩展到任意A股代码）、模拟执行、报告和治理工具并非上游项目的官方功能。
+本仓库是在 [shiyu-coder/Kronos](https://github.com/shiyu-coder/Kronos) 基础上的定制研究项目。上游Kronos提供金融K线基础模型、Tokenizer、预测模型及相关训练与推理能力；本仓库新增的多标的策略层（以603305为模板，`kronos.py` 可将其扩展到任意A股代码）、模拟执行、报告和治理工具并非上游项目的官方功能。
 
 如需了解基础模型的论文、模型权重和通用预测方法，请访问上游项目。
 
